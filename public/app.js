@@ -429,6 +429,8 @@ const CONFIG = {
   }
 };
 
+CONFIG.inventory = CONFIG.products;
+
 function headers() {
   return {
     "Content-Type": "application/json",
@@ -844,7 +846,7 @@ function lineItemsHTML(items = [], purchase = false) {
   const rows = items.length ? items : [{}];
 
   return `
-    <section class="line-items">
+    <section id="lineItemsForm" class="line-items" data-purchase="${purchase ? 1 : 0}">
       <div class="line-items-header">
         <strong>Line Items</strong>
         <button type="button" class="btn btn-secondary" onclick="addLineRow()">+ Add Item</button>
@@ -896,8 +898,12 @@ function fillProductLine(select) {
   const row = select.closest(".line-row");
   if (!product || !row) return;
 
+  const purchaseMode =
+    document.getElementById("lineItemsForm")?.dataset.purchase === "1";
+
   row.querySelector(".line-description").value = product.name;
-  row.querySelector(".line-price").value = product.sellingPrice ?? 0;
+  row.querySelector(".line-price").value =
+    purchaseMode ? (product.purchasePrice ?? 0) : (product.sellingPrice ?? 0);
   row.querySelector(".line-tax").value = product.taxRate ?? 18;
 }
 
@@ -909,7 +915,9 @@ function collectLines() {
     unitPrice: Number(row.querySelector(".line-price")?.value || 0),
     unitCost: Number(row.querySelector(".line-price")?.value || 0),
     discount: Number(row.querySelector(".line-discount")?.value || 0),
-    taxRate: Number(row.querySelector(".line-tax")?.value || 18)
+    taxRate: Number(row.querySelector(".line-tax")?.value || 18),
+    batchNumber: row.querySelector(".line-batch")?.value || "",
+    expiryDate: row.querySelector(".line-expiry")?.value || ""
   })).filter(x => x.quantity > 0);
 }
 

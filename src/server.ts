@@ -1616,6 +1616,205 @@ app.post(
   })
 );
 
+
+app.post(
+  "/api/purchases",
+  requireAuth,
+  allowRoles("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
+  asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    const supplierId = text(body.supplierId);
+    const items = Array.isArray(body.items) ? body.items as LineInput[] : [];
+
+    if (!supplierId) {
+      res.status(400).json({ error: "Supplier is required" });
+      return;
+    }
+
+    if (!items.length) {
+      res.status(400).json({ error: "At least one purchase item is required" });
+      return;
+    }
+
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId }
+    });
+
+    if (!supplier) {
+      res.status(400).json({ error: "Supplier not found" });
+      return;
+    }
+
+    const lines = await prepareLines(items, true);
+
+    if (!lines.length) {
+      res.status(400).json({ error: "No valid purchase items" });
+      return;
+    }
+
+    const subtotal = lines.reduce(
+      (sum, line) => sum + line.quantity * line.unitPrice,
+      0
+    );
+
+    const discount = lines.reduce(
+      (sum, line) => sum + line.discount,
+      0
+    );
+
+    const taxable = Math.max(0, subtotal - discount);
+
+    const tax = lines.reduce(
+      (sum, line) => sum + (line.total * line.taxRate / 100),
+      0
+    );
+
+    const total = taxable + tax;
+
+    const purchase = await prisma.$transaction(async (tx) => {
+      const created = await tx.purchase.create({
+        data: {
+          purchaseNumber: makeNumber("PUR"),
+          supplierId,
+          invoiceNumber: text(body.invoiceNumber) || null,
+          receivedDate: date(body.receivedDate) || new Date(),
+          subtotal,
+          discount,
+          tax,
+          total,
+          paymentStatus: text(body.paymentStatus, "UNPAID"),
+          notes: text(body.notes) || null,
+          branchId: currentUser(req).branchId || null
+        }
+      });
+
+      for (const raw of items) {
+        const productId = text(raw.productId);
+
+        if (!productId) {
+          throw new Error("Every purchase line must have a product");
+        }
+
+        const product = await tx.product.findUnique({
+          where: { id: productId }
+        });
+
+        if (!product) {
+          throw new Error(`Product not found: ${productId}`);
+        }
+
+        const quantity = number(raw.quantity);
+
+        if (quantity <= 0) {
+          throw new Error(`Invalid quantity for ${product.name}`);
+        }
+
+        const unitCost = number(
+          raw.unitCost ?? raw.unitPrice ?? product.purchasePrice
+        );
+
+        const discountAmount = Math.max(0, number(raw.discount));
+        const taxRate = Math.max(
+          0,
+          number(raw.taxRate ?? product.taxRate)
+        );
+
+        const lineTotal =
+          Math.max(0, quantity * unitCost - discountAmount);
+
+        let batchId: string | null = null;
+        const batchNumber = text(raw.batchNumber);
+
+        if (batchNumber) {
+          const existingBatch = await tx.batch.findFirst({
+            where: {
+              productId,
+              batchNumber
+            }
+          });
+
+          if (existingBatch) {
+            const updatedBatch = await tx.batch.update({
+              where: { id: existingBatch.id },
+              data: {
+                quantity: { increment: quantity },
+                expiryDate:
+                  date(raw.expiryDate) || existingBatch.expiryDate,
+                purchaseCost: unitCost
+              }
+            });
+
+            batchId = updatedBatch.id;
+          } else {
+            const newBatch = await tx.batch.create({
+              data: {
+                productId,
+                batchNumber,
+                expiryDate: date(raw.expiryDate),
+                quantity,
+                purchaseCost: unitCost,
+                sellingPrice: product.sellingPrice
+              }
+            });
+
+            batchId = newBatch.id;
+          }
+        }
+
+        const newStock = product.currentStock + quantity;
+
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            currentStock: newStock,
+            purchasePrice: unitCost
+          }
+        });
+
+        await tx.purchaseItem.create({
+          data: {
+            purchaseId: created.id,
+            productId,
+            batchId,
+            quantity,
+            unitCost,
+            discount: discountAmount,
+            taxRate,
+            total: lineTotal
+          }
+        });
+
+        await tx.stockTxn.create({
+          data: {
+            productId,
+            batchId,
+            type: "PURCHASE_RECEIPT",
+            quantity,
+            balance: newStock,
+            unitCost,
+            reference: `PURCHASE:${created.purchaseNumber}`,
+            purchaseId: created.id,
+            notes: "Direct purchase receipt",
+            createdBy: currentUser(req).sub
+          }
+        });
+      }
+
+      return created;
+    });
+
+    await audit(
+      req,
+      "CREATE",
+      "Purchase",
+      purchase.id,
+      purchase
+    );
+
+    res.status(201).json(purchase);
+  })
+);
+
 // ------------------------------------------------------------
 // PURCHASES
 // ------------------------------------------------------------
@@ -2401,6 +2600,8 @@ app.get(
     const filteredLowStock = lowStock.filter((x) => x.currentStock <= x.minStock);
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
