@@ -473,6 +473,93 @@ function esc(value) {
     .replaceAll("'","&#039;");
 }
 
+
+function inrWords(value) {
+
+  const number = Math.round(Number(value || 0));
+
+  if (!number) return "Zero Rupees Only";
+
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen"
+  ];
+
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety"
+  ];
+
+  function below100(n) {
+    if (n < 20) return ones[n];
+    return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+  }
+
+  function below1000(n) {
+    if (n < 100) return below100(n);
+
+    return ones[Math.floor(n / 100)] +
+      " Hundred" +
+      (n % 100 ? " " + below100(n % 100) : "");
+  }
+
+  let n = number;
+  const parts = [];
+
+  const crore = Math.floor(n / 10000000);
+
+  if (crore) {
+    parts.push(below1000(crore) + " Crore");
+    n %= 10000000;
+  }
+
+  const lakh = Math.floor(n / 100000);
+
+  if (lakh) {
+    parts.push(below1000(lakh) + " Lakh");
+    n %= 100000;
+  }
+
+  const thousand = Math.floor(n / 1000);
+
+  if (thousand) {
+    parts.push(below1000(thousand) + " Thousand");
+    n %= 1000;
+  }
+
+  if (n) {
+    parts.push(below1000(n));
+  }
+
+  return parts.join(" ") + " Rupees Only";
+}
+
 function money(value) {
   return new Intl.NumberFormat("en-IN", {
     style:"currency",
@@ -706,6 +793,7 @@ function actionButtons(key,row) {
 
   if (key === "customers") {
     actions.push(`<button class="btn btn-secondary" onclick='viewCustomer("${row.id}")'>History</button>`);
+    actions.push(`<button class="btn btn-primary" onclick='openEditor("customers","${row.id}")'>Edit</button>`);
   }
 
   if (key === "jobs") {
@@ -723,6 +811,10 @@ function actionButtons(key,row) {
     actions.push(`<button class="btn btn-secondary" onclick='adjustStock("${row.id}")'>Adjust Stock</button>`);
   }
 
+  if (key === "payments") {
+    actions.push(`<button class="btn btn-primary" onclick='printPaymentReceipt("${row.id}")'>Receipt</button>`);
+  }
+
   if (key === "purchase-orders") {
     if (row.status !== "RECEIVED") {
       actions.push(`<button class="btn btn-primary" onclick='receivePO("${row.id}")'>Receive</button>`);
@@ -731,6 +823,7 @@ function actionButtons(key,row) {
 
   if (key === "quotations") {
     actions.push(`<button class="btn btn-secondary" onclick='viewQuote("${row.id}")'>View</button>`);
+    actions.push(`<button class="btn btn-secondary" onclick='printQuotation("${row.id}")'>Print</button>`);
     if (row.status !== "CONVERTED") {
       actions.push(`<button class="btn btn-primary" onclick='convertQuote("${row.id}")'>Convert to Invoice</button>`);
     }
@@ -741,7 +834,7 @@ function actionButtons(key,row) {
     if (Number(row.balance) > 0) {
       actions.push(`<button class="btn btn-primary" onclick='recordPayment("${row.id}")'>Payment</button>`);
     }
-    actions.push(`<button class="btn btn-secondary" onclick='printInvoice("${row.id}")'>Print</button>`);
+    actions.push(`<button class="btn btn-secondary" onclick='printInvoice("${row.id}")'>Print GST</button>`);
   }
 
   return actions.join("");
@@ -980,7 +1073,15 @@ function filterTable(key,value) {
   const q = String(value || "").toLowerCase();
   const rows = state.records[key] || [];
   const filtered = rows.filter(row =>
-    Object.values(row).some(v => String(v ?? "").toLowerCase().includes(q))
+    Object.values(row).some(v =>
+      String(v ?? "").toLowerCase().includes(q)
+    ) ||
+    (
+      key === "customers" &&
+      String(lookup("customer",row.id) || "")
+        .toLowerCase()
+        .includes(q)
+    )
   );
   document.getElementById("tableArea").innerHTML = renderTable(key,filtered);
 }
@@ -1474,72 +1575,851 @@ function openPaymentEditor(invoiceId = "") {
 }
 
 async function printInvoice(id) {
+
   try {
+
     const data = await api(`/api/invoices/${id}`);
-    const settings = state.settings;
+
+    const invoice = data.invoice;
+    const customer = data.customer || {};
+    const settings = state.settings || {};
+
+    const companyName =
+      settings.companyName ||
+      "Home Safety Pest Control Service";
+
+    const companyCity =
+      settings.companyCity ||
+      "";
+
+    const companyState =
+      settings.companyState ||
+      "Kerala";
+
+    const companyGSTIN =
+      settings.companyGSTIN ||
+      "";
+
+    const items = data.items || [];
+
+    const rows = items.length
+      ? items.map((item,index) => {
+
+          const taxable =
+            Math.max(
+              0,
+              Number(item.quantity || 0) *
+              Number(item.unitPrice || 0) -
+              Number(item.discount || 0)
+            );
+
+          return `
+            <tr>
+              <td class="center">${index + 1}</td>
+
+              <td>
+                <strong>${esc(item.description)}</strong>
+                ${
+                  item.productId
+                    ? `<div class="small muted">Product: ${esc(lookup("product",item.productId))}</div>`
+                    : ""
+                }
+              </td>
+
+              <td class="center">${esc(item.quantity)}</td>
+
+              <td class="right">${money(item.unitPrice)}</td>
+
+              <td class="right">${money(item.discount)}</td>
+
+              <td class="center">${esc(item.taxRate)}%</td>
+
+              <td class="right">${money(taxable)}</td>
+            </tr>
+          `;
+
+        }).join("")
+      : `
+          <tr>
+            <td colspan="7" class="center muted">
+              No line items
+            </td>
+          </tr>
+        `;
 
     const html = `
-      <!doctype html>
-      <html>
-      <head>
-        <title>${esc(data.invoice.invoiceNumber)}</title>
-        <style>
-          body{font-family:Arial,sans-serif;padding:35px;color:#18251f}
-          h1{margin:0 0 5px}
-          .muted{color:#67756f}
-          .head{display:flex;justify-content:space-between;border-bottom:2px solid #0a7c5a;padding-bottom:18px}
-          table{width:100%;border-collapse:collapse;margin-top:22px}
-          th,td{border:1px solid #dfe8e3;padding:9px;text-align:left}
-          th{background:#f3f8f5}
-          .totals{margin-top:18px;margin-left:auto;width:300px}
-          .totals div{display:flex;justify-content:space-between;padding:5px 0}
-          .grand{font-weight:bold;font-size:18px;border-top:2px solid #0a7c5a;padding-top:9px}
-        </style>
-      </head>
-      <body>
-        <div class="head">
-          <div>
-            <h1>${esc(settings.companyName || "Home Safety Pest Control Service")}</h1>
-            <div class="muted">${esc(settings.companyCity || "")}, ${esc(settings.companyState || "")}</div>
-            <div class="muted">${esc(settings.companyGSTIN || "")}</div>
-          </div>
-          <div>
-            <h2>${esc(data.invoice.invoiceNumber)}</h2>
-            <div>Issue: ${fmtDate(data.invoice.issueDate)}</div>
-            <div>Due: ${fmtDate(data.invoice.dueDate)}</div>
-          </div>
-        </div>
+<!doctype html>
+<html>
+<head>
 
-        <h3>Bill To</h3>
-        <div>
-          <strong>${esc(data.customer?.name || "")}</strong><br>
-          ${esc(data.customer?.address || "")}<br>
-          ${esc(data.customer?.city || "")}, ${esc(data.customer?.state || "")}<br>
-          ${esc(data.customer?.phone || "")}<br>
-          ${esc(data.customer?.gstin || "")}
-        </div>
+<meta charset="utf-8">
 
-        ${renderPrintableItems(data.items)}
+<title>${esc(invoice.invoiceNumber)}</title>
 
-        <div class="totals">
-          <div><span>Subtotal</span><span>${money(data.invoice.subtotal)}</span></div>
-          <div><span>Discount</span><span>${money(data.invoice.discount)}</span></div>
-          <div><span>Taxable</span><span>${money(data.invoice.taxable)}</span></div>
-          <div><span>CGST</span><span>${money(data.invoice.cgst)}</span></div>
-          <div><span>SGST</span><span>${money(data.invoice.sgst)}</span></div>
-          <div><span>IGST</span><span>${money(data.invoice.igst)}</span></div>
-          <div class="grand"><span>Total</span><span>${money(data.invoice.total)}</span></div>
-          <div><span>Paid</span><span>${money(data.invoice.paidAmount)}</span></div>
-          <div><span>Balance</span><span>${money(data.invoice.balance)}</span></div>
-        </div>
+<style>
 
-        <p style="margin-top:40px">${esc(data.invoice.terms || "")}</p>
-        <p>${esc(data.invoice.notes || "")}</p>
-      </body>
-      </html>
-    `;
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  padding:28px;
+  color:#17231e;
+  background:white;
+  font-family:Arial,Helvetica,sans-serif;
+  font-size:12px;
+}
+
+.page{
+  max-width:900px;
+  margin:auto;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  gap:30px;
+  padding-bottom:18px;
+  border-bottom:3px solid #087a57;
+}
+
+.company h1{
+  margin:0 0 6px;
+  color:#07543f;
+  font-size:25px;
+}
+
+.company p{
+  margin:3px 0;
+  color:#62716b;
+  font-size:11px;
+}
+
+.document{
+  text-align:right;
+}
+
+.document h2{
+  margin:0;
+  color:#087a57;
+  font-size:24px;
+}
+
+.document p{
+  margin:5px 0;
+}
+
+.boxes{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+  margin-top:18px;
+}
+
+.box{
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  padding:13px;
+}
+
+.box-title{
+  color:#087a57;
+  font-size:9px;
+  font-weight:bold;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  margin-bottom:7px;
+}
+
+.box strong{
+  font-size:13px;
+}
+
+.muted{
+  color:#6d7a75;
+}
+
+.small{
+  font-size:9px;
+  margin-top:3px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+
+th{
+  color:white;
+  background:#087a57;
+  padding:9px;
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+td{
+  border:1px solid #dde7e2;
+  padding:9px;
+  vertical-align:top;
+}
+
+.center{
+  text-align:center;
+}
+
+.right{
+  text-align:right;
+}
+
+.summary{
+  display:grid;
+  grid-template-columns:1fr 330px;
+  gap:22px;
+  margin-top:18px;
+}
+
+.amount-words{
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  padding:13px;
+}
+
+.amount-words strong{
+  display:block;
+  color:#087a57;
+  margin-bottom:5px;
+}
+
+.totals{
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.total-row{
+  display:flex;
+  justify-content:space-between;
+  gap:15px;
+  padding:8px 12px;
+  border-bottom:1px solid #edf2ef;
+}
+
+.total-row:last-child{
+  border-bottom:0;
+}
+
+.grand{
+  color:white;
+  background:#087a57;
+  font-size:15px;
+  font-weight:bold;
+}
+
+.notes{
+  margin-top:20px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+}
+
+.notes-box{
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  padding:12px;
+  min-height:85px;
+}
+
+.footer{
+  margin-top:35px;
+  padding-top:12px;
+  border-top:1px solid #dce8e2;
+  color:#738078;
+  font-size:9px;
+  display:flex;
+  justify-content:space-between;
+}
+
+@media print{
+  body{
+    padding:0;
+  }
+
+  .page{
+    max-width:none;
+  }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="page">
+
+  <div class="header">
+
+    <div class="company">
+      <h1>${esc(companyName)}</h1>
+
+      <p>${esc(companyCity)}${companyCity ? ", " : ""}${esc(companyState)}</p>
+
+      ${
+        companyGSTIN
+          ? `<p><strong>GSTIN:</strong> ${esc(companyGSTIN)}</p>`
+          : ""
+      }
+    </div>
+
+    <div class="document">
+
+      <h2>TAX INVOICE</h2>
+
+      <p>
+        <strong>Invoice:</strong>
+        ${esc(invoice.invoiceNumber)}
+      </p>
+
+      <p>
+        <strong>Issue:</strong>
+        ${fmtDate(invoice.issueDate)}
+      </p>
+
+      ${
+        invoice.dueDate
+          ? `
+            <p>
+              <strong>Due:</strong>
+              ${fmtDate(invoice.dueDate)}
+            </p>
+          `
+          : ""
+      }
+
+    </div>
+
+  </div>
+
+  <div class="boxes">
+
+    <div class="box">
+
+      <div class="box-title">Bill To</div>
+
+      <strong>${esc(customer.name || "")}</strong>
+
+      <p class="muted">
+        ${esc(customer.address || "")}
+      </p>
+
+      <p class="muted">
+        ${esc(customer.city || "")}
+        ${customer.city && customer.state ? ", " : ""}
+        ${esc(customer.state || "")}
+        ${customer.pincode ? " - " + esc(customer.pincode) : ""}
+      </p>
+
+      ${
+        customer.phone
+          ? `<p class="muted">Phone: ${esc(customer.phone)}</p>`
+          : ""
+      }
+
+      ${
+        customer.gstin
+          ? `<p class="muted"><strong>GSTIN:</strong> ${esc(customer.gstin)}</p>`
+          : ""
+      }
+
+    </div>
+
+    <div class="box">
+
+      <div class="box-title">Service Reference</div>
+
+      ${
+        invoice.jobId
+          ? `<p><strong>Job:</strong> ${esc(lookup("job",invoice.jobId))}</p>`
+          : ""
+      }
+
+      ${
+        invoice.quotationId
+          ? `<p><strong>Quotation:</strong> ${esc(lookup("quotation",invoice.quotationId))}</p>`
+          : ""
+      }
+
+      <p>
+        <strong>Status:</strong>
+        ${esc(invoice.status)}
+      </p>
+
+    </div>
+
+  </div>
+
+  <table>
+
+    <thead>
+
+      <tr>
+        <th>#</th>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Discount</th>
+        <th>GST</th>
+        <th>Taxable Value</th>
+      </tr>
+
+    </thead>
+
+    <tbody>
+      ${rows}
+    </tbody>
+
+  </table>
+
+  <div class="summary">
+
+    <div class="amount-words">
+
+      <strong>Amount in Words</strong>
+
+      ${esc(inrWords(invoice.total))}
+
+      <p class="muted">
+        Customer outstanding after this invoice:
+        <strong>${money(invoice.balance)}</strong>
+      </p>
+
+    </div>
+
+    <div class="totals">
+
+      <div class="total-row">
+        <span>Subtotal</span>
+        <strong>${money(invoice.subtotal)}</strong>
+      </div>
+
+      <div class="total-row">
+        <span>Discount</span>
+        <strong>${money(invoice.discount)}</strong>
+      </div>
+
+      <div class="total-row">
+        <span>Taxable Value</span>
+        <strong>${money(invoice.taxable)}</strong>
+      </div>
+
+      ${
+        Number(invoice.cgst) > 0
+          ? `
+            <div class="total-row">
+              <span>CGST</span>
+              <strong>${money(invoice.cgst)}</strong>
+            </div>
+
+            <div class="total-row">
+              <span>SGST</span>
+              <strong>${money(invoice.sgst)}</strong>
+            </div>
+          `
+          : `
+            <div class="total-row">
+              <span>IGST</span>
+              <strong>${money(invoice.igst)}</strong>
+            </div>
+          `
+      }
+
+      <div class="total-row grand">
+        <span>Grand Total</span>
+        <strong>${money(invoice.total)}</strong>
+      </div>
+
+      <div class="total-row">
+        <span>Paid</span>
+        <strong>${money(invoice.paidAmount)}</strong>
+      </div>
+
+      <div class="total-row">
+        <span>Balance Due</span>
+        <strong>${money(invoice.balance)}</strong>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="notes">
+
+    <div class="notes-box">
+
+      <strong>Terms & Conditions</strong>
+
+      <p class="muted">
+        ${esc(invoice.terms || "Payment is due as stated on this invoice.")}
+      </p>
+
+    </div>
+
+    <div class="notes-box">
+
+      <strong>Notes</strong>
+
+      <p class="muted">
+        ${esc(invoice.notes || "")}
+      </p>
+
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span>Generated by HSPC ERP</span>
+    <span>${esc(companyName)}</span>
+  </div>
+
+</div>
+
+</body>
+</html>
+`;
 
     const win = window.open("", "_blank");
+
+    if (!win) {
+      toast("Pop-up blocked by browser", false);
+      return;
+    }
+
+    win.document.write(html);
+    win.document.close();
+
+    win.onload = () => {
+      win.focus();
+      setTimeout(() => win.print(), 300);
+    };
+
+  } catch(err) {
+    showError(err);
+  }
+}
+
+
+async function printQuotation(id) {
+
+  try {
+
+    const data = await api(`/api/quotations/${id}`);
+
+    const q = data.quotation;
+    const customer = data.customer || {};
+    const settings = state.settings || {};
+
+    const items = data.items || [];
+
+    const rows = items.length
+      ? items.map((item,index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${esc(item.description)}</td>
+            <td>${esc(item.quantity)}</td>
+            <td>${money(item.unitPrice)}</td>
+            <td>${money(item.discount)}</td>
+            <td>${item.taxRate}%</td>
+            <td>${money(item.total)}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="7">No items</td></tr>`;
+
+    const html = `
+<!doctype html>
+<html>
+<head>
+
+<meta charset="utf-8">
+
+<title>${esc(q.quotationNumber)}</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  padding:30px;
+  font-family:Arial,Helvetica,sans-serif;
+  font-size:12px;
+  color:#17231e;
+}
+
+.page{
+  max-width:900px;
+  margin:auto;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  gap:25px;
+  padding-bottom:17px;
+  border-bottom:3px solid #087a57;
+}
+
+h1{
+  margin:0 0 5px;
+  color:#07543f;
+  font-size:24px;
+}
+
+.doc{
+  text-align:right;
+}
+
+.doc h2{
+  color:#087a57;
+  margin:0 0 6px;
+  font-size:22px;
+}
+
+.boxes{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+  margin-top:17px;
+}
+
+.box{
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  padding:13px;
+}
+
+.title{
+  color:#087a57;
+  font-size:9px;
+  font-weight:bold;
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+
+th{
+  color:white;
+  background:#087a57;
+  padding:9px;
+  text-align:left;
+  font-size:9px;
+}
+
+td{
+  border:1px solid #dde7e2;
+  padding:9px;
+}
+
+.right{text-align:right}
+
+.summary{
+  width:330px;
+  margin-left:auto;
+  margin-top:18px;
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.row{
+  display:flex;
+  justify-content:space-between;
+  padding:8px 12px;
+  border-bottom:1px solid #edf2ef;
+}
+
+.grand{
+  background:#087a57;
+  color:#fff;
+  font-weight:bold;
+  font-size:15px;
+}
+
+.notes{
+  margin-top:20px;
+  padding:12px;
+  border:1px solid #dce8e2;
+  border-radius:10px;
+}
+
+.muted{
+  color:#6d7a75;
+}
+
+@media print{
+  body{padding:0}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="page">
+
+  <div class="header">
+
+    <div>
+      <h1>${esc(settings.companyName || "Home Safety Pest Control Service")}</h1>
+      <div>${esc(settings.companyCity || "")}, ${esc(settings.companyState || "Kerala")}</div>
+      ${
+        settings.companyGSTIN
+          ? `<div>GSTIN: ${esc(settings.companyGSTIN)}</div>`
+          : ""
+      }
+    </div>
+
+    <div class="doc">
+      <h2>QUOTATION</h2>
+      <div><strong>No:</strong> ${esc(q.quotationNumber)}</div>
+      <div><strong>Date:</strong> ${fmtDate(q.quoteDate)}</div>
+      ${
+        q.validUntil
+          ? `<div><strong>Valid Until:</strong> ${fmtDate(q.validUntil)}</div>`
+          : ""
+      }
+    </div>
+
+  </div>
+
+  <div class="boxes">
+
+    <div class="box">
+      <div class="title">Prepared For</div>
+      <strong>${esc(customer.name || "")}</strong>
+      <p class="muted">${esc(customer.address || "")}</p>
+      <p class="muted">
+        ${esc(customer.city || "")}
+        ${customer.city && customer.state ? ", " : ""}
+        ${esc(customer.state || "")}
+      </p>
+      ${
+        customer.phone
+          ? `<p class="muted">Phone: ${esc(customer.phone)}</p>`
+          : ""
+      }
+      ${
+        customer.gstin
+          ? `<p class="muted">GSTIN: ${esc(customer.gstin)}</p>`
+          : ""
+      }
+    </div>
+
+    <div class="box">
+      <div class="title">Status</div>
+      <strong>${esc(q.status)}</strong>
+      ${
+        q.terms
+          ? `<p class="muted">${esc(q.terms)}</p>`
+          : ""
+      }
+    </div>
+
+  </div>
+
+  <table>
+
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Discount</th>
+        <th>GST</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+
+    <tbody>${rows}</tbody>
+
+  </table>
+
+  <div class="summary">
+
+    <div class="row">
+      <span>Subtotal</span>
+      <strong>${money(q.subtotal)}</strong>
+    </div>
+
+    <div class="row">
+      <span>Discount</span>
+      <strong>${money(q.discount)}</strong>
+    </div>
+
+    <div class="row">
+      <span>Taxable</span>
+      <strong>${money(q.taxable)}</strong>
+    </div>
+
+    ${
+      Number(q.cgst) > 0
+        ? `
+          <div class="row">
+            <span>CGST</span>
+            <strong>${money(q.cgst)}</strong>
+          </div>
+          <div class="row">
+            <span>SGST</span>
+            <strong>${money(q.sgst)}</strong>
+          </div>
+        `
+        : `
+          <div class="row">
+            <span>IGST</span>
+            <strong>${money(q.igst)}</strong>
+          </div>
+        `
+    }
+
+    <div class="row grand">
+      <span>Total</span>
+      <strong>${money(q.total)}</strong>
+    </div>
+
+  </div>
+
+  <div class="notes">
+
+    <strong>Notes</strong>
+
+    <p>
+      ${esc(q.notes || "")}
+    </p>
+
+    <p>
+      <strong>Amount in Words:</strong>
+      ${esc(inrWords(q.total))}
+    </p>
+
+  </div>
+
+</div>
+
+</body>
+</html>
+`;
+
+    const win = window.open("", "_blank");
+
     if (!win) {
       toast("Pop-up blocked by browser",false);
       return;
@@ -1547,8 +2427,12 @@ async function printInvoice(id) {
 
     win.document.write(html);
     win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 350);
+
+    win.onload = () => {
+      win.focus();
+      setTimeout(() => win.print(),300);
+    };
+
   } catch(err) {
     showError(err);
   }
@@ -1570,6 +2454,260 @@ function renderPrintableItems(items) {
       `).join("")}</tbody>
     </table>
   `;
+}
+
+
+async function printPaymentReceipt(id) {
+
+  try {
+
+    const data = await api(`/api/payments/${id}`);
+
+    const payment = data.payment;
+    const invoice = data.invoice || {};
+    const customer = data.customer || {};
+    const settings = state.settings || {};
+
+    const html = `
+<!doctype html>
+<html>
+<head>
+
+<meta charset="utf-8">
+
+<title>Receipt ${esc(payment.id)}</title>
+
+<style>
+
+body{
+  margin:0;
+  padding:30px;
+  background:#f4f8f6;
+  font-family:Arial,Helvetica,sans-serif;
+  color:#15231d;
+}
+
+.receipt{
+  width:min(700px,100%);
+  margin:auto;
+  background:#fff;
+  border:1px solid #dce8e2;
+  border-radius:15px;
+  padding:28px;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  border-bottom:3px solid #087a57;
+  padding-bottom:16px;
+}
+
+.company h1{
+  margin:0 0 5px;
+  color:#07543f;
+  font-size:21px;
+}
+
+h2{
+  margin:0;
+  color:#087a57;
+}
+
+.box{
+  margin-top:18px;
+  border:1px solid #dce8e2;
+  border-radius:10px;
+  padding:13px;
+}
+
+.row{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  padding:10px 0;
+  border-bottom:1px solid #edf2ef;
+}
+
+.row:last-child{
+  border-bottom:0;
+}
+
+.amount{
+  margin-top:18px;
+  padding:18px;
+  text-align:center;
+  border-radius:12px;
+  color:#fff;
+  background:#087a57;
+}
+
+.amount .value{
+  margin-top:5px;
+  font-size:25px;
+  font-weight:bold;
+}
+
+.muted{
+  color:#718078;
+  font-size:11px;
+}
+
+.footer{
+  margin-top:24px;
+  padding-top:12px;
+  border-top:1px solid #dce8e2;
+  font-size:9px;
+  color:#718078;
+  display:flex;
+  justify-content:space-between;
+}
+
+@media print{
+  body{
+    padding:0;
+    background:#fff;
+  }
+
+  .receipt{
+    border:0;
+  }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="receipt">
+
+  <div class="header">
+
+    <div class="company">
+      <h1>${esc(settings.companyName || "Home Safety Pest Control Service")}</h1>
+      <div class="muted">
+        ${esc(settings.companyCity || "")},
+        ${esc(settings.companyState || "Kerala")}
+      </div>
+      ${
+        settings.companyGSTIN
+          ? `<div class="muted">GSTIN: ${esc(settings.companyGSTIN)}</div>`
+          : ""
+      }
+    </div>
+
+    <div>
+      <h2>PAYMENT RECEIPT</h2>
+      <div class="muted">
+        ${fmtDateTime(payment.receivedAt)}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="box">
+
+    <div class="row">
+      <span>Received From</span>
+      <strong>${esc(customer.name || "")}</strong>
+    </div>
+
+    <div class="row">
+      <span>Invoice</span>
+      <strong>${esc(invoice.invoiceNumber || payment.invoiceId)}</strong>
+    </div>
+
+    <div class="row">
+      <span>Payment Method</span>
+      <strong>${esc(payment.method || "")}</strong>
+    </div>
+
+    <div class="row">
+      <span>Reference</span>
+      <strong>${esc(payment.reference || "—")}</strong>
+    </div>
+
+    <div class="row">
+      <span>Received By</span>
+      <strong>${esc(data.receivedBy?.name || "HSPC ERP")}</strong>
+    </div>
+
+  </div>
+
+  <div class="amount">
+
+    <div>AMOUNT RECEIVED</div>
+
+    <div class="value">
+      ${money(payment.amount)}
+    </div>
+
+    <div style="margin-top:7px">
+      ${esc(inrWords(payment.amount))}
+    </div>
+
+  </div>
+
+  <div class="box">
+
+    <div class="row">
+      <span>Invoice Total</span>
+      <strong>${money(invoice.total)}</strong>
+    </div>
+
+    <div class="row">
+      <span>Total Paid</span>
+      <strong>${money(invoice.paidAmount)}</strong>
+    </div>
+
+    <div class="row">
+      <span>Remaining Balance</span>
+      <strong>${money(invoice.balance)}</strong>
+    </div>
+
+  </div>
+
+  ${
+    payment.notes
+      ? `
+        <div class="box">
+          <strong>Notes</strong>
+          <p class="muted">${esc(payment.notes)}</p>
+        </div>
+      `
+      : ""
+  }
+
+  <div class="footer">
+    <span>Generated by HSPC ERP</span>
+    <span>Keep this receipt for your records.</span>
+  </div>
+
+</div>
+
+</body>
+</html>
+`;
+
+    const win = window.open("", "_blank");
+
+    if (!win) {
+      toast("Pop-up blocked by browser",false);
+      return;
+    }
+
+    win.document.write(html);
+    win.document.close();
+
+    win.onload = () => {
+      win.focus();
+      setTimeout(() => win.print(),300);
+    };
+
+  } catch(err) {
+    showError(err);
+  }
 }
 
 async function generatePayroll() {

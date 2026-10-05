@@ -1937,6 +1937,40 @@ app.post(
   })
 );
 
+
+app.get(
+  "/api/quotations/:id",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const id = String(req.params.id);
+
+    const quotation = await prisma.quotation.findUnique({
+      where: { id }
+    });
+
+    if (!quotation) {
+      res.status(404).json({ error: "Quotation not found" });
+      return;
+    }
+
+    const [customer, items] = await Promise.all([
+      prisma.customer.findUnique({
+        where: { id: quotation.customerId }
+      }),
+      prisma.quotationItem.findMany({
+        where: { quotationId: id },
+        orderBy: { id: "asc" }
+      })
+    ]);
+
+    res.json({
+      quotation,
+      customer,
+      items
+    });
+  })
+);
+
 app.post(
   "/api/quotations/:id/convert",
   requireAuth,
@@ -2136,6 +2170,50 @@ app.post(
 
     await audit(req, "CREATE", "Invoice", invoice.id, invoice);
     res.status(201).json(invoice);
+  })
+);
+
+
+app.get(
+  "/api/payments/:id",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const id = String(req.params.id);
+
+    const payment = await prisma.payment.findUnique({
+      where: { id }
+    });
+
+    if (!payment) {
+      res.status(404).json({ error: "Payment not found" });
+      return;
+    }
+
+    const [invoice, customer, receivedBy] = await Promise.all([
+      prisma.invoice.findUnique({
+        where: { id: payment.invoiceId }
+      }),
+      prisma.customer.findUnique({
+        where: { id: payment.customerId }
+      }),
+      payment.receivedBy
+        ? prisma.user.findUnique({
+            where: { id: payment.receivedBy },
+            select: {
+              id: true,
+              name: true,
+              username: true
+            }
+          })
+        : null
+    ]);
+
+    res.json({
+      payment,
+      invoice,
+      customer,
+      receivedBy
+    });
   })
 );
 
