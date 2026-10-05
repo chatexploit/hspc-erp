@@ -1,405 +1,72 @@
 <!doctype html>
 <html lang="en">
 <head>
-
-<meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1"
->
-
-<title>HSPC ERP · Login</title>
-
-<style>
-
-*{
-  box-sizing:border-box;
-}
-
-body{
-
-  margin:0;
-  min-height:100vh;
-
-  display:grid;
-  place-items:center;
-
-  padding:18px;
-
-  font-family:
-    Inter,
-    system-ui,
-    sans-serif;
-
-  background:
-    radial-gradient(
-      circle at 10% 10%,
-      rgba(38,183,124,.23),
-      transparent 30%
-    ),
-    linear-gradient(
-      135deg,
-      #073d29,
-      #16895d
-    );
-
-}
-
-.card{
-
-  width:min(410px,100%);
-
-  padding:36px;
-
-  background:
-    rgba(255,255,255,.88);
-
-  border:
-    1px solid
-    rgba(255,255,255,.65);
-
-  border-radius:24px;
-
-  box-shadow:
-    0 30px 80px
-    rgba(0,0,0,.20);
-
-  backdrop-filter:
-    blur(28px);
-
-}
-
-.logo{
-
-  width:54px;
-  height:54px;
-
-  display:grid;
-  place-items:center;
-
-  background:#0d744c;
-
-  color:white;
-
-  border-radius:16px;
-
-  font-size:25px;
-
-}
-
-h1{
-
-  margin:20px 0 4px;
-
-  color:#103326;
-
-  font-size:27px;
-
-  letter-spacing:-.035em;
-
-}
-
-p{
-
-  margin:0 0 24px;
-
-  color:#718079;
-
-  font-size:11px;
-
-  line-height:1.6;
-
-}
-
-label{
-
-  display:block;
-
-  margin:
-    0 0 7px;
-
-  color:#617068;
-
-  font-size:9px;
-
-  font-weight:800;
-
-  text-transform:uppercase;
-
-  letter-spacing:.1em;
-
-}
-
-.field{
-  margin-bottom:15px;
-}
-
-input{
-
-  width:100%;
-
-  height:47px;
-
-  padding:
-    0 13px;
-
-  border:
-    1px solid
-    rgba(15,60,40,.11);
-
-  border-radius:12px;
-
-  background:
-    rgba(255,255,255,.82);
-
-  outline:none;
-
-  font-size:13px;
-
-}
-
-input:focus{
-
-  border-color:#1b9a69;
-
-  box-shadow:
-    0 0 0 4px
-    rgba(27,154,105,.09);
-
-}
-
-button{
-
-  width:100%;
-  height:48px;
-
-  margin-top:4px;
-
-  border:0;
-
-  border-radius:12px;
-
-  color:white;
-
-  background:
-    linear-gradient(
-      135deg,
-      #179b68,
-      #0e704a
-    );
-
-  font-weight:800;
-
-  cursor:pointer;
-
-}
-
-#error{
-
-  display:none;
-
-  margin-bottom:14px;
-
-  padding:10px 12px;
-
-  color:#b43947;
-
-  background:#fff0f2;
-
-  border:1px solid #ffd5dc;
-
-  border-radius:10px;
-
-  font-size:10px;
-
-}
-
-.footer{
-
-  margin-top:20px;
-
-  color:#8a958f;
-
-  text-align:center;
-
-  font-size:9px;
-
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a7c5a">
+  <title>HSPC ERP — Login</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/styles.css">
 </head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <section class="auth-card glass">
+      <div class="brand-mark">H</div>
+      <div class="eyebrow">HOME SAFETY PEST CONTROL SERVICE</div>
+      <h1>HSPC ERP</h1>
+      <p class="muted">Operations, CRM, inventory, sales, finance and HR in one system.</p>
 
-<body>
+      <form id="loginForm" class="stack">
+        <label>Username
+          <input id="username" autocomplete="username" value="admin" required>
+        </label>
 
-<div class="card">
+        <label>Password
+          <input id="password" type="password" autocomplete="current-password" value="admin123" required>
+        </label>
 
-  <div class="logo">🛡</div>
+        <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+        <div id="loginError" class="alert danger hidden"></div>
+      </form>
+    </section>
+  </main>
 
-  <h1>Welcome back</h1>
-
-  <p>
-    Home Safety Pest Control Service
-    management system.
-  </p>
-
-  <div id="error"></div>
-
-  <form id="form">
-
-    <div class="field">
-
-      <label>Username</label>
-
-      <input
-        id="username"
-        autocomplete="username"
-        required
-      >
-
-    </div>
-
-    <div class="field">
-
-      <label>Password</label>
-
-      <input
-        id="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      >
-
-    </div>
-
-    <button id="button">
-      Sign in
-    </button>
-
-  </form>
-
-  <div class="footer">
-    HSPC ERP · Secure Business Portal
-  </div>
-
-</div>
-
-<script>
-
-const form =
-  document.getElementById(
-    "form"
-  );
-
-const button =
-  document.getElementById(
-    "button"
-  );
-
-const error =
-  document.getElementById(
-    "error"
-  );
-
-form.addEventListener(
-  "submit",
-  async event => {
-
-    event.preventDefault();
-
-    error.style.display =
-      "none";
-
-    button.disabled =
-      true;
-
-    button.textContent =
-      "Signing in...";
-
-    try{
-
-      const response =
-        await fetch(
-          "/api/login",
-          {
-            method:"POST",
-
-            headers:{
-              "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-
-              username:
-                document.getElementById(
-                  "username"
-                ).value.trim(),
-
-              password:
-                document.getElementById(
-                  "password"
-                ).value
-
-            })
-
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if(!response.ok){
-
-        throw new Error(
-          data.message ||
-          "Login failed."
-        );
-
-      }
-
-      localStorage.setItem(
-        "hspc_token",
-        data.token
-      );
-
-      localStorage.setItem(
-        "hspc_user",
-        JSON.stringify({
-          username:
-            data.username,
-
-          fullName:
-            data.fullName,
-
-          role:
-            data.role
-        })
-      );
-
-      location.href="/";
-
-    }catch(err){
-
-      error.textContent =
-        err.message;
-
-      error.style.display =
-        "block";
-
-      button.disabled =
-        false;
-
-      button.textContent =
-        "Sign in";
-
+  <script>
+    if (localStorage.getItem("hspc_token")) {
+      location.href = "/";
     }
 
-  }
-);
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-</script>
+      const error = document.getElementById("loginError");
+      error.classList.add("hidden");
 
+      try {
+        const r = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
+          })
+        });
+
+        const data = await r.json();
+
+        if (!r.ok) {
+          throw new Error(data.error || "Login failed");
+        }
+
+        localStorage.setItem("hspc_token", data.token);
+        localStorage.setItem("hspc_user", JSON.stringify(data.user));
+
+        location.href = "/";
+      } catch (err) {
+        error.textContent = err.message;
+        error.classList.remove("hidden");
+      }
+    });
+  </script>
 </body>
 </html>

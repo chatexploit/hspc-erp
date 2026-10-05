@@ -1,0 +1,10 @@
+{
+  "name": "HSPC ERP",
+  "short_name": "HSPC ERP",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2fbf7",
+  "theme_color": "#0a7c5a",
+  "description": "Home Safety Pest Control Service ERP",
+  "icons": []
+}

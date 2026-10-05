@@ -1,71 +1,629 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model Branch {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  state       String?
+  pincode     String?
+  gstin       String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  branchUsers User[]
+
+  @@index([status])
 }
 
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  fullName     String
-  role         String   @default("STAFF")
-  createdAt    DateTime @default(now())
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  passwordHash       String
+  name               String
+  email              String?
+  phone              String?
+  role               String    @default("STAFF")
+  branchId           String?
+  status             String    @default("ACTIVE")
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  branch             Branch?   @relation(fields: [branchId], references: [id])
+
+  @@index([role])
+  @@index([branchId])
+  @@index([status])
 }
 
 model Customer {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String   @unique
-  email     String?
-  address   String?
-  gstin     String?
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  customerCode   String   @unique
+  name           String
+  type           String   @default("INDIVIDUAL")
+  phone          String?
+  alternatePhone String?
+  email          String?
+  gstin          String?
+  contactPerson  String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  source         String?
+  notes          String?
+  status         String   @default("ACTIVE")
+  branchId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  jobs Job[]
+  @@index([name])
+  @@index([phone])
+  @@index([status])
+  @@index([branchId])
+}
+
+model Contract {
+  id               String    @id @default(cuid())
+  contractNumber   String    @unique
+  customerId       String
+  serviceType      String
+  frequency        String    @default("MONTHLY")
+  recurrenceMonths Int       @default(1)
+  startDate        DateTime?
+  endDate          DateTime?
+  nextServiceDate  DateTime?
+  amount           Float     @default(0)
+  address          String?
+  inclusions       String?
+  notes            String?
+  status           String    @default("ACTIVE")
+  branchId         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([nextServiceDate])
+  @@index([status])
+}
+
+model FollowUp {
+  id         String    @id @default(cuid())
+  customerId String
+  jobId      String?
+  assignedTo String?
+  title      String
+  dueDate    DateTime?
+  priority   String    @default("NORMAL")
+  status     String    @default("PENDING")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([assignedTo])
+  @@index([dueDate])
+  @@index([status])
 }
 
 model Job {
-  id            String    @id @default(uuid())
-  jobCode       String    @unique
-  customerId    String
-  serviceType   String
-  status        String    @default("SCHEDULED")
-  scheduledDate DateTime?
-  totalAmount   Decimal   @default(0)
-  notes         String?
-  createdAt     DateTime  @default(now())
+  id              String    @id @default(cuid())
+  jobNumber       String    @unique
+  customerId      String
+  contractId      String?
+  serviceType     String
+  priority        String    @default("NORMAL")
+  address         String?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  technicianId    String?
+  supervisorId    String?
+  status          String    @default("SCHEDULED")
+  estimatedAmount Float     @default(0)
+  actualAmount    Float     @default(0)
+  completedAt     DateTime?
+  notes           String?
+  customerNote    String?
+  technicianNote  String?
+  branchId        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  customer Customer  @relation(fields: [customerId], references: [id])
-  invoices Invoice[]
+  @@index([customerId])
+  @@index([contractId])
+  @@index([technicianId])
+  @@index([scheduledStart])
+  @@index([status])
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  supplierCode  String   @unique
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  gstin         String?
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  paymentTerms  String?
+  notes         String?
+  status        String   @default("ACTIVE")
+  branchId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  sku           String   @unique
+  name          String
+  category      String   @default("CHEMICAL")
+  productType   String   @default("CONSUMABLE")
+  unit          String   @default("PCS")
+  brand         String?
+  hsn           String?
+  taxRate       Float    @default(18)
+  purchasePrice Float    @default(0)
+  sellingPrice  Float    @default(0)
+  currentStock  Float    @default(0)
+  minStock      Float    @default(0)
+  maxStock      Float?
+  description   String?
+  status        String   @default("ACTIVE")
+  branchId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+  @@index([currentStock])
+  @@index([status])
+}
+
+model Batch {
+  id              String    @id @default(cuid())
+  productId       String
+  batchNumber     String
+  manufactureDate DateTime?
+  expiryDate      DateTime?
+  quantity        Float     @default(0)
+  purchaseCost    Float     @default(0)
+  sellingPrice    Float     @default(0)
+  status          String    @default("ACTIVE")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([productId])
+  @@index([expiryDate])
+  @@index([batchNumber])
+}
+
+model StockTxn {
+  id         String   @id @default(cuid())
+  productId  String
+  batchId    String?
+  type       String
+  quantity   Float
+  balance    Float
+  unitCost   Float    @default(0)
+  reference  String?
+  jobId      String?
+  purchaseId String?
+  notes      String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
+  @@index([jobId])
+  @@index([purchaseId])
+  @@index([createdAt])
+}
+
+model JobUsage {
+  id        String   @id @default(cuid())
+  jobId     String
+  productId String
+  batchId   String?
+  quantity  Float
+  unitCost  Float    @default(0)
+  totalCost Float    @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([productId])
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  poNumber     String    @unique
+  supplierId   String
+  orderDate    DateTime  @default(now())
+  expectedDate DateTime?
+  status       String    @default("DRAFT")
+  subtotal     Float     @default(0)
+  discount     Float     @default(0)
+  tax          Float     @default(0)
+  total        Float     @default(0)
+  notes        String?
+  branchId     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Float
+  unitCost        Float
+  discount        Float  @default(0)
+  taxRate         Float  @default(18)
+  total           Float
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model Purchase {
+  id              String   @id @default(cuid())
+  purchaseNumber  String   @unique
+  purchaseOrderId String?
+  supplierId      String
+  invoiceNumber   String?
+  receivedDate    DateTime @default(now())
+  subtotal        Float    @default(0)
+  discount        Float    @default(0)
+  tax             Float    @default(0)
+  total           Float    @default(0)
+  paymentStatus   String   @default("UNPAID")
+  notes           String?
+  branchId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([receivedDate])
+}
+
+model PurchaseItem {
+  id         String  @id @default(cuid())
+  purchaseId String
+  productId  String
+  batchId    String?
+  quantity   Float
+  unitCost   Float
+  discount   Float   @default(0)
+  taxRate    Float   @default(18)
+  total      Float
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@index([batchId])
+}
+
+model Quotation {
+  id              String    @id @default(cuid())
+  quotationNumber String    @unique
+  customerId      String
+  quoteDate       DateTime  @default(now())
+  validUntil      DateTime?
+  status          String    @default("DRAFT")
+  subtotal        Float     @default(0)
+  discount        Float     @default(0)
+  taxable         Float     @default(0)
+  cgst            Float     @default(0)
+  sgst            Float     @default(0)
+  igst            Float     @default(0)
+  total           Float     @default(0)
+  notes           String?
+  terms           String?
+  branchId        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([quoteDate])
+  @@index([status])
+}
+
+model QuotationItem {
+  id          String  @id @default(cuid())
+  quotationId String
+  productId   String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  discount    Float   @default(0)
+  taxRate     Float   @default(18)
+  total       Float
+
+  @@index([quotationId])
+  @@index([productId])
 }
 
 model Invoice {
-  id            String    @id @default(uuid())
+  id            String    @id @default(cuid())
   invoiceNumber String    @unique
-  jobId         String
-  status        String    @default("UNPAID")
-  subtotal      Decimal   @default(0)
-  discount      Decimal   @default(0)
-  tax           Decimal   @default(0)
-  amountDue     Decimal   @default(0)
+  customerId    String
+  jobId         String?
+  quotationId   String?
   issueDate     DateTime  @default(now())
   dueDate       DateTime?
+  status        String    @default("DUE")
+  subtotal      Float     @default(0)
+  discount      Float     @default(0)
+  taxable       Float     @default(0)
+  cgst          Float     @default(0)
+  sgst          Float     @default(0)
+  igst          Float     @default(0)
+  total         Float     @default(0)
+  paidAmount    Float     @default(0)
+  balance       Float     @default(0)
+  notes         String?
+  terms         String?
+  branchId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  job      Job       @relation(fields: [jobId], references: [id])
-  payments Payment[]
+  @@index([customerId])
+  @@index([jobId])
+  @@index([issueDate])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  productId   String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  discount    Float   @default(0)
+  taxRate     Float   @default(18)
+  total       Float
+
+  @@index([invoiceId])
+  @@index([productId])
 }
 
 model Payment {
-  id              String   @id @default(uuid())
-  invoiceId       String
-  amountPaid      Decimal
-  paymentMethod   String
-  referenceNumber String?
-  paymentDate     DateTime @default(now())
+  id         String   @id @default(cuid())
+  invoiceId  String
+  customerId String
+  amount     Float
+  method     String   @default("CASH")
+  reference  String?
+  receivedAt DateTime @default(now())
+  notes      String?
+  receivedBy String?
+  createdAt  DateTime @default(now())
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([receivedAt])
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  expenseNumber String   @unique
+  category      String
+  description   String?
+  amount        Float
+  paymentMethod String   @default("CASH")
+  supplierId    String?
+  employeeId    String?
+  expenseDate   DateTime @default(now())
+  branchId      String?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([expenseDate])
+  @@index([supplierId])
+  @@index([employeeId])
+}
+
+model Employee {
+  id                String    @id @default(cuid())
+  employeeCode      String    @unique
+  userId            String?
+  name              String
+  designation       String?
+  department        String?
+  phone             String?
+  email             String?
+  address           String?
+  joinDate          DateTime?
+  employmentType    String    @default("FULL_TIME")
+  basicSalary       Float     @default(0)
+  allowances        Float     @default(0)
+  standardDeduction Float     @default(0)
+  status            String    @default("ACTIVE")
+  branchId          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@index([department])
+}
+
+model Attendance {
+  id         String    @id @default(cuid())
+  employeeId String
+  date       DateTime
+  status     String    @default("PRESENT")
+  checkIn    DateTime?
+  checkOut   DateTime?
+  hours      Float     @default(0)
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+}
+
+model Leave {
+  id         String   @id @default(cuid())
+  employeeId String
+  leaveType  String
+  startDate  DateTime
+  endDate    DateTime
+  days       Float
+  reason     String?
+  status     String   @default("PENDING")
+  approvedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([startDate])
+  @@index([status])
+}
+
+model EmployeeAdvance {
+  id          String   @id @default(cuid())
+  employeeId  String
+  amount      Float
+  advanceDate DateTime @default(now())
+  reason      String?
+  status      String   @default("OPEN")
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([advanceDate])
+  @@index([status])
+}
+
+model Payroll {
+  id          String    @id @default(cuid())
+  employeeId  String
+  month       Int
+  year        Int
+  workingDays Int
+  presentDays Int
+  absentDays  Int
+  basicSalary Float
+  allowances  Float
+  overtime    Float     @default(0)
+  deductions  Float
+  advance     Float
+  netSalary   Float
+  status      String    @default("DRAFT")
+  paidDate    DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([employeeId, month, year])
+  @@index([month, year])
+  @@index([status])
+}
+
+model Vehicle {
+  id              String    @id @default(cuid())
+  vehicleNumber   String    @unique
+  vehicleType     String?
+  make            String?
+  model           String?
+  year            Int?
+  driverId        String?
+  currentOdometer Float     @default(0)
+  insuranceExpiry DateTime?
+  pollutionExpiry DateTime?
+  fitnessExpiry   DateTime?
+  lastServiceDate DateTime?
+  status          String    @default("ACTIVE")
+  notes           String?
+  branchId        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([driverId])
+}
+
+model FuelLog {
+  id        String   @id @default(cuid())
+  vehicleId String
+  date      DateTime @default(now())
+  litres    Float
+  amount    Float
+  odometer  Float?
+  fuelType  String   @default("DIESEL")
+  station   String?
+  notes     String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId])
+  @@index([date])
+}
+
+model VehicleMaintenance {
+  id              String    @id @default(cuid())
+  vehicleId       String
+  date            DateTime  @default(now())
+  maintenanceType String
+  description     String?
+  amount          Float
+  odometer        Float?
+  vendor          String?
+  nextServiceDate DateTime?
+  status          String    @default("COMPLETED")
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([vehicleId])
+  @@index([date])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity])
+  @@index([userId])
 }
