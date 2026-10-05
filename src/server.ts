@@ -2507,6 +2507,182 @@ app.get(
   })
 );
 
+
+// ------------------------------------------------------------
+// FINANCE CENTER
+// ------------------------------------------------------------
+
+app.get(
+  "/api/reports/finance",
+  requireAuth,
+  allowRoles("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
+  asyncRoute(async (req, res) => {
+    const from =
+      date(req.query.from) ||
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    const to =
+      date(req.query.to) ||
+      new Date();
+
+    const [
+      invoices,
+      payments,
+      expenses,
+      purchases,
+      payroll,
+      jobs
+    ] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          issueDate: {
+            gte: from,
+            lte: to
+          }
+        }
+      }),
+
+      prisma.payment.findMany({
+        where: {
+          receivedAt: {
+            gte: from,
+            lte: to
+          }
+        }
+      }),
+
+      prisma.expense.findMany({
+        where: {
+          expenseDate: {
+            gte: from,
+            lte: to
+          }
+        }
+      }),
+
+      prisma.purchase.findMany({
+        where: {
+          receivedDate: {
+            gte: from,
+            lte: to
+          }
+        }
+      }),
+
+      prisma.payroll.findMany({
+        where: {
+          createdAt: {
+            gte: from,
+            lte: to
+          }
+        }
+      }),
+
+      prisma.job.findMany({
+        where: {
+          createdAt: {
+            gte: from,
+            lte: to
+          }
+        }
+      })
+    ]);
+
+    const billed = invoices.reduce(
+      (sum, row) => sum + row.total,
+      0
+    );
+
+    const invoicePaid = invoices.reduce(
+      (sum, row) => sum + row.paidAmount,
+      0
+    );
+
+    const collections = payments.reduce(
+      (sum, row) => sum + row.amount,
+      0
+    );
+
+    const outstanding = invoices.reduce(
+      (sum, row) => sum + row.balance,
+      0
+    );
+
+    const expensesTotal = expenses.reduce(
+      (sum, row) => sum + row.amount,
+      0
+    );
+
+    const purchasesTotal = purchases.reduce(
+      (sum, row) => sum + row.total,
+      0
+    );
+
+    const payrollTotal = payroll.reduce(
+      (sum, row) => sum + row.netSalary,
+      0
+    );
+
+    const totalCashOutflow =
+      expensesTotal +
+      payrollTotal +
+      purchasesTotal;
+
+    const operatingResult =
+      collections -
+      totalCashOutflow;
+
+    const expenseByCategory: Record<string, number> = {};
+
+    for (const expense of expenses) {
+      expenseByCategory[expense.category] =
+        (expenseByCategory[expense.category] || 0) +
+        expense.amount;
+    }
+
+    const paymentByMethod: Record<string, number> = {};
+
+    for (const payment of payments) {
+      paymentByMethod[payment.method] =
+        (paymentByMethod[payment.method] || 0) +
+        payment.amount;
+    }
+
+    const jobsByStatus: Record<string, number> = {};
+
+    for (const job of jobs) {
+      jobsByStatus[job.status] =
+        (jobsByStatus[job.status] || 0) +
+        1;
+    }
+
+    res.json({
+      range: {
+        from,
+        to
+      },
+      billed,
+      invoicePaid,
+      collections,
+      outstanding,
+      expenses: expensesTotal,
+      purchases: purchasesTotal,
+      payroll: payrollTotal,
+      totalCashOutflow,
+      operatingResult,
+      expenseByCategory,
+      paymentByMethod,
+      jobsByStatus,
+      invoiceCount: invoices.length,
+      paymentCount: payments.length,
+      expenseCount: expenses.length,
+      purchaseCount: purchases.length,
+      payrollCount: payroll.length,
+      jobCount: jobs.length
+    });
+  })
+);
+
 // ------------------------------------------------------------
 // AUDIT / BACKUPS
 // ------------------------------------------------------------

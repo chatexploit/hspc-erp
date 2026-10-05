@@ -786,42 +786,193 @@ async function renderCRUD(key) {
   const config = CONFIG[key];
 
   let rows = await loadList(key);
-  if (key === "users") {
-    state.users = rows;
-  }
+
+  if (key === "users") state.users = rows;
   if (key === "employees") state.employees = rows;
   if (key === "products") state.products = rows;
   if (key === "suppliers") state.suppliers = rows;
   if (key === "branches") state.branches = rows;
 
+  const singular =
+    config.title.replace(/s$/,"");
+
+  const descriptions = {
+    customers: "Manage customer profiles, contacts, GST details and service relationships.",
+    jobs: "Plan, assign and track pest-control service jobs from scheduling through completion.",
+    contracts: "Manage AMC contracts, recurrence schedules and upcoming service visits.",
+    followups: "Track customer callbacks, sales follow-ups and operational actions.",
+    suppliers: "Maintain supplier records and purchasing relationships.",
+    products: "Manage chemicals, medicines, materials, equipment, pricing and stock thresholds.",
+    "purchase-orders": "Create and manage purchase orders for chemicals, materials and equipment.",
+    purchases: "Track received purchases and update stock with supplier documents.",
+    quotations: "Prepare customer quotations with discounts and GST calculations.",
+    invoices: "Create and manage GST invoices, balances and customer receivables.",
+    payments: "Record customer receipts and monitor payment collection.",
+    expenses: "Record and analyse company operating expenses.",
+    employees: "Maintain employee profiles, salary information and employment status.",
+    attendance: "Record daily employee attendance and working hours.",
+    leaves: "Manage employee leave requests and approvals.",
+    advances: "Track employee salary advances and deductions.",
+    payroll: "Generate and manage employee payroll.",
+    vehicles: "Manage fleet vehicles, documents and operational status.",
+    fuel: "Track fuel purchases, mileage and vehicle running costs.",
+    maintenance: "Track service, repair and vehicle maintenance expenditure.",
+    users: "Manage ERP users, roles, branches and account access.",
+    branches: "Manage HSPC branches and operating locations."
+  };
+
+  const description =
+    descriptions[key] ||
+    `Manage ${config.title.toLowerCase()} inside HSPC ERP.`;
+
+  const canExport = rows.length > 0;
+
   const body = `
-    <div class="page-actions">
-      <div class="left">
-        <input id="pageSearch" class="search" placeholder="Search ${esc(config.title)}..." oninput="filterTable('${key}',this.value)">
-      </div>
-      <div class="right">
-        <button class="btn btn-secondary" onclick='exportCSV("${key}")'>Export CSV</button>
-        ${["payments","payroll"].includes(key) ? "" : `<button class="btn btn-primary" onclick='openEditor("${key}")'>+ New ${esc(config.title.replace(/s$/,""))}</button>`}
-      </div>
+    <div class="page-shell">
+
+      <section class="page-hero">
+
+        <div class="page-hero-copy">
+          <div class="eyebrow">HSPC ERP · MANAGEMENT</div>
+
+          <h2>${esc(config.title)}</h2>
+
+          <p>${esc(description)}</p>
+        </div>
+
+        <div class="page-hero-actions">
+
+          ${
+            canExport
+              ? `<button class="btn btn-secondary" onclick='exportCSV("${key}")'>
+                   Export CSV
+                 </button>`
+              : ""
+          }
+
+          ${
+            ["payments","payroll"].includes(key)
+              ? ""
+              : `<button class="btn btn-primary" onclick='openEditor("${key}")'>
+                   + New ${esc(singular)}
+                 </button>`
+          }
+
+        </div>
+
+      </section>
+
+      <section class="glass-panel glass-toolbar">
+
+        <div class="glass-toolbar-left">
+          <span class="toolbar-label">
+            ${rows.length} record${rows.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div class="glass-toolbar-right">
+
+          <input
+            id="pageSearch"
+            class="search"
+            placeholder="Search ${esc(config.title)}..."
+            oninput="filterTable('${key}',this.value)"
+          >
+
+        </div>
+
+      </section>
+
+      ${
+        key === "purchase-orders"
+          ? `
+            <section class="glass-panel section-card">
+              <div class="quick-grid">
+                <button class="quick-action" onclick='openEditor("purchase-orders")'>
+                  <strong>New Purchase Order</strong>
+                  <span>Create supplier order</span>
+                </button>
+                <button class="quick-action" onclick='go("purchases")'>
+                  <strong>Receiving</strong>
+                  <span>Receive purchased stock</span>
+                </button>
+                <button class="quick-action" onclick='go("inventory")'>
+                  <strong>Inventory</strong>
+                  <span>Check stock levels</span>
+                </button>
+                <button class="quick-action" onclick='go("suppliers")'>
+                  <strong>Suppliers</strong>
+                  <span>Manage vendors</span>
+                </button>
+              </div>
+            </section>
+          `
+          : ""
+      }
+
+      <section class="glass-table">
+        <div id="tableArea">
+          ${renderTable(key,rows)}
+        </div>
+      </section>
+
     </div>
-    <div id="tableArea">${renderTable(key,rows)}</div>
   `;
 
   document.getElementById("content").innerHTML = body;
 
   if (key === "purchases") {
-    document.querySelector(".page-actions .right").innerHTML +=
-      `<button class="btn btn-primary" onclick='openEditor("purchases")'>+ Direct Purchase</button>`;
+
+    const right =
+      document.querySelector(".page-hero-actions");
+
+    if (right) {
+
+      right.insertAdjacentHTML(
+        "beforeend",
+        `<button class="btn btn-primary" onclick='openEditor("purchases")'>
+           + Direct Purchase
+         </button>`
+      );
+
+    }
+
   }
 
   if (key === "payments") {
-    document.querySelector(".page-actions .right").innerHTML +=
-      `<button class="btn btn-primary" onclick='openPaymentEditor()'>+ Record Payment</button>`;
+
+    const right =
+      document.querySelector(".page-hero-actions");
+
+    if (right) {
+
+      right.insertAdjacentHTML(
+        "beforeend",
+        `<button class="btn btn-primary" onclick='openPaymentEditor()'>
+           + Record Payment
+         </button>`
+      );
+
+    }
+
   }
 
   if (key === "payroll") {
-    document.querySelector(".page-actions .right").innerHTML +=
-      `<button class="btn btn-primary" onclick='generatePayroll()'>Generate Payroll</button>`;
+
+    const right =
+      document.querySelector(".page-hero-actions");
+
+    if (right) {
+
+      right.insertAdjacentHTML(
+        "beforeend",
+        `<button class="btn btn-primary" onclick='generatePayroll()'>
+           Generate Payroll
+         </button>`
+      );
+
+    }
+
   }
 }
 
@@ -1553,10 +1704,321 @@ async function renderInventory() {
   `;
 }
 
+
+async function renderFinance() {
+
+  const data = await api("/api/reports/finance");
+
+  const cashIn = Number(data.collections || 0);
+  const cashOut = Number(data.totalCashOutflow || 0);
+  const result = Number(data.operatingResult || 0);
+
+  const expenseEntries =
+    Object.entries(data.expenseByCategory || {})
+      .sort((a,b) => Number(b[1]) - Number(a[1]))
+      .slice(0,10);
+
+  const paymentEntries =
+    Object.entries(data.paymentByMethod || {})
+      .sort((a,b) => Number(b[1]) - Number(a[1]));
+
+  const jobEntries =
+    Object.entries(data.jobsByStatus || {})
+      .sort((a,b) => Number(b[1]) - Number(a[1]));
+
+  const totalExpenseForBars =
+    Math.max(
+      1,
+      ...expenseEntries.map(x => Number(x[1]))
+    );
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-shell">
+
+      <section class="page-hero">
+        <div class="page-hero-copy">
+          <div class="eyebrow">FINANCE & CONTROL</div>
+          <h2>Finance Center</h2>
+          <p>
+            Monitor collections, receivables, operating cash flow,
+            purchases, expenses and payroll from one financial view.
+          </p>
+        </div>
+
+        <div class="page-hero-actions">
+          <button class="btn btn-secondary" onclick="go('invoices')">
+            Invoices
+          </button>
+
+          <button class="btn btn-secondary" onclick="go('payments')">
+            Payments
+          </button>
+
+          <button class="btn btn-primary" onclick="go('expenses')">
+            New Expense
+          </button>
+        </div>
+      </section>
+
+      <section class="kpi-strip">
+
+        <div class="kpi-mini">
+          <div class="kpi-label">Collections</div>
+          <div class="kpi-value">${money(cashIn)}</div>
+          <div class="kpi-sub">${data.paymentCount} receipts</div>
+        </div>
+
+        <div class="kpi-mini">
+          <div class="kpi-label">Outstanding</div>
+          <div class="kpi-value">${money(data.outstanding)}</div>
+          <div class="kpi-sub">${data.invoiceCount} invoices in period</div>
+        </div>
+
+        <div class="kpi-mini">
+          <div class="kpi-label">Cash Outflow</div>
+          <div class="kpi-value">${money(cashOut)}</div>
+          <div class="kpi-sub">Expenses + payroll + purchases</div>
+        </div>
+
+        <div class="kpi-mini">
+          <div class="kpi-label">Operating Result</div>
+          <div class="kpi-value ${result >= 0 ? "finance-positive" : "finance-negative"}">
+            ${money(result)}
+          </div>
+          <div class="kpi-sub">Collections minus cash outflow</div>
+        </div>
+
+      </section>
+
+      <section class="fin-grid">
+
+        <div class="finance-card">
+          <div class="section-title" style="margin-top:0">
+            <h2>Financial Position</h2>
+            <span class="badge ${result >= 0 ? "green" : "red"}">
+              ${result >= 0 ? "POSITIVE" : "NEGATIVE"}
+            </span>
+          </div>
+
+          <div class="big-finance-number ${result >= 0 ? "finance-positive" : "finance-negative"}">
+            ${money(result)}
+          </div>
+
+          <div class="muted" style="margin-top:6px">
+            Current operating result for the selected period
+          </div>
+
+          <div class="finance-list">
+
+            <div class="finance-row">
+              <div class="finance-row-label">Billed Revenue</div>
+              <div class="finance-row-value">${money(data.billed)}</div>
+            </div>
+
+            <div class="finance-row">
+              <div class="finance-row-label">Invoice Collections</div>
+              <div class="finance-row-value">${money(data.invoicePaid)}</div>
+            </div>
+
+            <div class="finance-row">
+              <div class="finance-row-label">Total Expenses</div>
+              <div class="finance-row-value">${money(data.expenses)}</div>
+            </div>
+
+            <div class="finance-row">
+              <div class="finance-row-label">Purchases</div>
+              <div class="finance-row-value">${money(data.purchases)}</div>
+            </div>
+
+            <div class="finance-row">
+              <div class="finance-row-label">Payroll</div>
+              <div class="finance-row-value">${money(data.payroll)}</div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="finance-card">
+          <div class="section-title" style="margin-top:0">
+            <h2>Payment Methods</h2>
+          </div>
+
+          <div class="finance-list">
+
+            ${
+              paymentEntries.length
+                ? paymentEntries.map(([method,value]) => {
+
+                    const pct =
+                      cashIn > 0
+                        ? Number(value) / cashIn * 100
+                        : 0;
+
+                    return `
+                      <div>
+                        <div class="finance-row">
+                          <div class="finance-row-label">
+                            ${esc(method)}
+                          </div>
+
+                          <div class="finance-row-value">
+                            ${money(value)}
+                          </div>
+                        </div>
+
+                        <div class="progress-track">
+                          <div
+                            class="progress-value"
+                            style="width:${Math.min(100,pct)}%"
+                          ></div>
+                        </div>
+                      </div>
+                    `;
+                  }).join("")
+                : `<div class="empty">No payment data.</div>`
+            }
+
+          </div>
+        </div>
+
+      </section>
+
+      <section class="fin-grid">
+
+        <div class="finance-card">
+
+          <div class="section-title" style="margin-top:0">
+            <h2>Expense Categories</h2>
+            <button class="btn btn-secondary" onclick="go('expenses')">
+              View Expenses
+            </button>
+          </div>
+
+          <div class="finance-list">
+
+            ${
+              expenseEntries.length
+                ? expenseEntries.map(([category,value]) => {
+
+                    const pct =
+                      Number(value) / totalExpenseForBars * 100;
+
+                    return `
+                      <div>
+
+                        <div class="finance-row">
+                          <div class="finance-row-label">
+                            ${esc(category)}
+                          </div>
+
+                          <div class="finance-row-value">
+                            ${money(value)}
+                          </div>
+                        </div>
+
+                        <div class="progress-track">
+                          <div
+                            class="progress-value"
+                            style="width:${Math.min(100,pct)}%"
+                          ></div>
+                        </div>
+
+                      </div>
+                    `;
+
+                  }).join("")
+                : `<div class="empty">No expense data.</div>`
+            }
+
+          </div>
+
+        </div>
+
+        <div class="finance-card">
+
+          <div class="section-title" style="margin-top:0">
+            <h2>Job Status</h2>
+            <button class="btn btn-secondary" onclick="go('jobs')">
+              Jobs
+            </button>
+          </div>
+
+          <div class="finance-list">
+
+            ${
+              jobEntries.length
+                ? jobEntries.map(([status,count]) => `
+                    <div class="finance-row">
+                      <div class="finance-row-label">
+                        ${esc(status.replaceAll("_"," "))}
+                      </div>
+                      <div class="finance-row-value">
+                        ${count}
+                      </div>
+                    </div>
+                  `).join("")
+                : `<div class="empty">No job data.</div>`
+            }
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <section class="finance-card">
+
+        <div class="section-title" style="margin-top:0">
+          <h2>Finance Actions</h2>
+        </div>
+
+        <div class="quick-grid">
+
+          <button class="quick-action" onclick="go('invoices')">
+            <strong>Invoices</strong>
+            <span>Billing and receivables</span>
+          </button>
+
+          <button class="quick-action" onclick="go('payments')">
+            <strong>Receipts</strong>
+            <span>Customer collections</span>
+          </button>
+
+          <button class="quick-action" onclick="go('expenses')">
+            <strong>Expenses</strong>
+            <span>Operating expenditure</span>
+          </button>
+
+          <button class="quick-action" onclick="go('payroll')">
+            <strong>Payroll</strong>
+            <span>Salary and deductions</span>
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+  `;
+}
+
 async function renderReports() {
   document.getElementById("content").innerHTML = `
-    <div class="card">
-      <form id="reportForm">
+    <div class="page-shell">
+
+      <section class="page-hero">
+        <div class="page-hero-copy">
+          <div class="eyebrow">ANALYTICS & PERFORMANCE</div>
+          <h2>Reports</h2>
+          <p>Business performance, jobs, revenue, expenses, inventory and technician analysis.</p>
+        </div>
+        <div class="page-hero-actions">
+          <button class="btn btn-primary" onclick="go('finance')">Finance Center</button>
+        </div>
+      </section>
+
+      <div class="card">
+        <form id="reportForm">
         <div class="grid grid-3">
           <label>From <input type="date" name="from"></label>
           <label>To <input type="date" name="to"></label>
@@ -1565,6 +2027,8 @@ async function renderReports() {
       </form>
     </div>
     <div id="reportArea" style="margin-top:14px"></div>
+
+    </div>
   `;
 
   document.getElementById("reportForm").addEventListener("submit", e => {
@@ -1781,6 +2245,7 @@ async function renderPage() {
   if (state.page === "inventory") return renderInventory();
   if (state.page === "schedule") return renderSchedule();
   if (state.page === "reports") return renderReports();
+  if (state.page === "finance") return renderFinance();
   if (state.page === "backup") return renderBackup();
   if (state.page === "settings") return renderSettings();
   if (state.page === "audit") return renderAudit();
