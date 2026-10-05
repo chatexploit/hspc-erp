@@ -3,70 +3,129 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0a7c5a">
-  <title>HSPC ERP — Login</title>
+  <meta name="theme-color" content="#087a57">
+  <meta name="description" content="HSPC ERP Login">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/styles.css">
+  <title>HSPC ERP — Login</title>
 </head>
+
 <body class="auth-body">
-  <main class="auth-shell">
-    <section class="auth-card glass">
-      <div class="brand-mark">H</div>
-      <div class="eyebrow">HOME SAFETY PEST CONTROL SERVICE</div>
-      <h1>HSPC ERP</h1>
-      <p class="muted">Operations, CRM, inventory, sales, finance and HR in one system.</p>
 
-      <form id="loginForm" class="stack">
-        <label>Username
-          <input id="username" autocomplete="username" value="admin" required>
+  <main class="auth-container">
+
+    <section class="auth-card">
+
+      <div class="auth-brand">
+        <div class="brand-mark auth-mark">H</div>
+
+        <div>
+          <div class="eyebrow">HOME SAFETY PEST CONTROL SERVICE</div>
+          <div class="auth-brand-title">HSPC ERP</div>
+        </div>
+      </div>
+
+      <div class="auth-heading">
+        <h1>Welcome back</h1>
+        <p>Sign in to manage your operations, customers, inventory and finance.</p>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+
+        <label>
+          Username
+          <div class="input-wrap">
+            <span>◉</span>
+            <input
+              id="username"
+              name="username"
+              autocomplete="username"
+              value="admin"
+              required
+              placeholder="Enter username"
+            >
+          </div>
         </label>
 
-        <label>Password
-          <input id="password" type="password" autocomplete="current-password" value="admin123" required>
+        <label>
+          Password
+          <div class="input-wrap">
+            <span>●</span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              value="admin123"
+              required
+              placeholder="Enter password"
+            >
+          </div>
         </label>
 
-        <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+        <button class="btn btn-primary btn-login" type="submit">
+          Sign in
+        </button>
+
         <div id="loginError" class="alert danger hidden"></div>
+
       </form>
+
+      <div class="auth-footer">
+        <span>HSPC ERP</span>
+        <span>Secure Business Management</span>
+      </div>
+
     </section>
+
   </main>
 
-  <script>
-    if (localStorage.getItem("hspc_token")) {
-      location.href = "/";
+<script>
+if (localStorage.getItem("hspc_token")) {
+  location.href = "/";
+}
+
+document.getElementById("loginForm").addEventListener("submit", async (event) => {
+
+  event.preventDefault();
+
+  const error = document.getElementById("loginError");
+
+  error.classList.add("hidden");
+
+  try {
+
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to sign in");
     }
 
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    localStorage.setItem("hspc_token", data.token);
+    localStorage.setItem("hspc_user", JSON.stringify(data.user));
 
-      const error = document.getElementById("loginError");
-      error.classList.add("hidden");
+    location.href = "/";
 
-      try {
-        const r = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: document.getElementById("username").value,
-            password: document.getElementById("password").value
-          })
-        });
+  } catch (err) {
 
-        const data = await r.json();
+    error.textContent = err.message || "Login failed";
+    error.classList.remove("hidden");
 
-        if (!r.ok) {
-          throw new Error(data.error || "Login failed");
-        }
+  }
 
-        localStorage.setItem("hspc_token", data.token);
-        localStorage.setItem("hspc_user", JSON.stringify(data.user));
+});
+</script>
 
-        location.href = "/";
-      } catch (err) {
-        error.textContent = err.message;
-        error.classList.remove("hidden");
-      }
-    });
-  </script>
 </body>
 </html>

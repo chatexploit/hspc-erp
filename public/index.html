@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0a7c5a">
+  <meta name="theme-color" content="#087a57">
   <meta name="description" content="Home Safety Pest Control Service ERP">
   <link rel="manifest" href="/manifest.json">
   <title>HSPC ERP</title>
@@ -14,18 +14,19 @@
 <div id="app" class="app-shell">
 
   <aside class="sidebar" id="sidebar">
+
     <div class="sidebar-brand">
       <div class="brand-mark small">H</div>
-      <div>
+      <div class="brand-copy">
         <strong>HSPC ERP</strong>
         <span>Home Safety Pest Control</span>
       </div>
     </div>
 
-    <div class="sidebar-user glass">
+    <div class="sidebar-user">
       <div id="userAvatar" class="avatar">A</div>
-      <div>
-        <strong id="userName">Admin</strong>
+      <div class="sidebar-user-copy">
+        <strong id="userName">Administrator</strong>
         <span id="userRole">SUPER_ADMIN</span>
       </div>
     </div>
@@ -33,49 +34,67 @@
     <nav id="nav" class="nav"></nav>
 
     <div class="sidebar-footer">
-      <button class="nav-link" onclick="logout()">↪ <span>Logout</span></button>
+      <button class="nav-link" onclick="logout()">
+        <span class="nav-icon">↪</span>
+        <span>Logout</span>
+      </button>
     </div>
+
   </aside>
 
   <main class="main">
-    <header class="topbar glass">
-      <button class="icon-btn mobile-only" onclick="toggleSidebar()">☰</button>
-      <div>
-        <div class="eyebrow" id="pageEyebrow">HSPC ERP</div>
-        <h1 id="pageTitle">Dashboard</h1>
+
+    <header class="topbar">
+
+      <div class="topbar-left">
+        <button class="icon-btn mobile-only" onclick="toggleSidebar()">☰</button>
+
+        <div>
+          <div class="eyebrow" id="pageEyebrow">HOME SAFETY PEST CONTROL SERVICE</div>
+          <h1 id="pageTitle">Dashboard</h1>
+        </div>
       </div>
 
       <div class="top-actions">
-        <button class="icon-btn" onclick="openChangePassword()">🔐</button>
-        <button class="icon-btn" onclick="reloadPageData()">↻</button>
+        <button class="icon-btn" title="Change password" onclick="openChangePassword()">🔐</button>
+        <button class="icon-btn" title="Refresh" onclick="reloadPageData()">↻</button>
       </div>
+
     </header>
 
     <section id="content" class="content"></section>
+
   </main>
 </div>
 
 <div id="modal" class="modal hidden">
   <div class="modal-backdrop" onclick="closeModal()"></div>
-  <section class="modal-card glass">
+
+  <section class="modal-card">
+
     <header class="modal-header">
       <div>
         <div class="eyebrow" id="modalEyebrow">HSPC ERP</div>
         <h2 id="modalTitle">Edit</h2>
       </div>
+
       <button class="icon-btn" onclick="closeModal()">×</button>
     </header>
+
     <div id="modalBody"></div>
+
   </section>
 </div>
 
 <div id="toastHost" class="toast-host"></div>
 
 <script src="/app.js"></script>
+
 <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 </script>
+
 </body>
 </html>
