@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>HSPC ERP</title>
+
+<style>
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  min-height:100vh;
+
+  font-family:
+    Inter,
+    system-ui,
+    sans-serif;
+
+  color:#123126;
+
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(38,183,124,.20),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(14,105,69,.15),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #eaf8f1,
+      #f7fbf9
+    );
+
+  display:grid;
+  place-items:center;
+
+  padding:20px;
+}
+
+.card{
+
+  width:min(760px,100%);
+
+  padding:40px;
+
+  background:
+    rgba(255,255,255,.74);
+
+  border:1px solid
+    rgba(255,255,255,.85);
+
+  border-radius:28px;
+
+  box-shadow:
+    0 30px 80px
+    rgba(5,65,41,.12);
+
+  backdrop-filter:blur(25px);
+
+}
+
+.logo{
+
+  width:58px;
+  height:58px;
+
+  display:grid;
+  place-items:center;
+
+  color:white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #179b68,
+      #0b6a45
+    );
+
+  border-radius:17px;
+
+  font-size:27px;
+}
+
+h1{
+  margin:22px 0 7px;
+
+  font-size:32px;
+
+  letter-spacing:-.04em;
+}
+
+p{
+  color:#728078;
+
+  font-size:13px;
+}
+
+.grid{
+
+  display:grid;
+
+  grid-template-columns:
+    repeat(4,1fr);
+
+  gap:12px;
+
+  margin-top:28px;
+}
+
+.stat{
+
+  padding:18px;
+
+  background:
+    rgba(255,255,255,.65);
+
+  border:
+    1px solid
+    rgba(15,80,52,.07);
+
+  border-radius:16px;
+}
+
+.stat small{
+  display:block;
+
+  color:#738179;
+
+  font-size:9px;
+
+  text-transform:uppercase;
+
+  letter-spacing:.1em;
+}
+
+.stat strong{
+
+  display:block;
+
+  margin-top:7px;
+
+  font-size:22px;
+}
+
+.login{
+  margin-top:25px;
+
+  display:inline-flex;
+
+  padding:12px 18px;
+
+  color:white;
+
+  background:#168f61;
+
+  border:0;
+
+  border-radius:12px;
+
+  font-weight:750;
+
+  cursor:pointer;
+}
+
+@media(max-width:600px){
+
+  .card{
+    padding:25px;
+  }
+
+  h1{
+    font-size:27px;
+  }
+
+  .grid{
+    grid-template-columns:
+      repeat(2,1fr);
+  }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+  <div class="logo">🛡</div>
+
+  <h1>HSPC ERP</h1>
+
+  <p>
+    Home Safety Pest Control Service
+    · New ERP Core
+  </p>
+
+  <div class="grid">
+
+    <div class="stat">
+      <small>System</small>
+      <strong id="system">...</strong>
+    </div>
+
+    <div class="stat">
+      <small>Database</small>
+      <strong id="database">...</strong>
+    </div>
+
+    <div class="stat">
+      <small>Customers</small>
+      <strong id="customers">...</strong>
+    </div>
+
+    <div class="stat">
+      <small>Jobs</small>
+      <strong id="jobs">...</strong>
+    </div>
+
+  </div>
+
+  <button
+    class="login"
+    onclick="location.href='/login.html'"
+  >
+    Open HSPC ERP
+  </button>
+
+</div>
+
+<script>
+
+async function load(){
+
+  try{
+
+    const health =
+      await fetch(
+        "/api/health"
+      );
+
+    const data =
+      await health.json();
+
+    document.getElementById(
+      "system"
+    ).textContent =
+      data.ok
+        ? "ONLINE"
+        : "ERROR";
+
+    document.getElementById(
+      "database"
+    ).textContent =
+      data.ok
+        ? "CONNECTED"
+        : "ERROR";
+
+  }catch{
+
+    document.getElementById(
+      "system"
+    ).textContent =
+      "OFFLINE";
+
+    document.getElementById(
+      "database"
+    ).textContent =
+      "ERROR";
+
+  }
+
+}
+
+load();
+
+</script>
+
+</body>
+</html>

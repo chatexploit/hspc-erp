@@ -1,0 +1,71 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  role         String   @default("STAFF")
+  createdAt    DateTime @default(now())
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  email     String?
+  address   String?
+  gstin     String?
+  createdAt DateTime @default(now())
+
+  jobs Job[]
+}
+
+model Job {
+  id            String    @id @default(uuid())
+  jobCode       String    @unique
+  customerId    String
+  serviceType   String
+  status        String    @default("SCHEDULED")
+  scheduledDate DateTime?
+  totalAmount   Decimal   @default(0)
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  invoices Invoice[]
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  invoiceNumber String    @unique
+  jobId         String
+  status        String    @default("UNPAID")
+  subtotal      Decimal   @default(0)
+  discount      Decimal   @default(0)
+  tax           Decimal   @default(0)
+  amountDue     Decimal   @default(0)
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime?
+
+  job      Job       @relation(fields: [jobId], references: [id])
+  payments Payment[]
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  amountPaid      Decimal
+  paymentMethod   String
+  referenceNumber String?
+  paymentDate     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
